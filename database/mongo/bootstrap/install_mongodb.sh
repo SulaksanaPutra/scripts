@@ -89,6 +89,8 @@ if [[ "$INSTALL_GUI" =~ ^[Yy]$ ]]; then
             -e ME_CONFIG_MONGODB_ADMINUSERNAME=$MONGO_ROOT_USER \
             -e ME_CONFIG_MONGODB_ADMINPASSWORD=$MONGO_ROOT_PASS \
             -e ME_CONFIG_MONGODB_SERVER=$MONGO_CONTAINER_NAME \
+            -e ME_CONFIG_BASICAUTH_USERNAME=$MONGO_ROOT_USER \
+            -e ME_CONFIG_BASICAUTH_PASSWORD=$MONGO_ROOT_PASS \
             -p $ME_PORT:8081 \
             mongo-express
         echo "Mongo Express container '$ME_CONTAINER_NAME' is running on port $ME_PORT."
