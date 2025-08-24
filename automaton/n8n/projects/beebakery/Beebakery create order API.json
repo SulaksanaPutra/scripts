@@ -1,0 +1,115 @@
+{
+  "name": "Beebakery create order API",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "srcdoc/order",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7618e8f1-37ce-40b2-ba77-d468a00541a0",
+      "name": "Create order",
+      "webhookId": "3ebe830b-74d6-4705-ad1b-a4adea6b55ce"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "=orders",
+        "fields": "=no_order,created_at,items",
+        "options": {
+          "dateFields": "created_at"
+        }
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "ec0b34e2-f080-4a2d-8736-e528f64a1e30",
+      "name": "Insert documents",
+      "credentials": {
+        "mongoDb": {
+          "id": "WqIcOTtzitUmvhCf",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3a7596f9-4293-4952-8155-e637a8fa8417",
+              "name": "no_order",
+              "value": "={{ $json.body.no_order }}",
+              "type": "string"
+            },
+            {
+              "id": "80224005-9489-4cd9-a37c-61e23ee6b4c6",
+              "name": "created_at",
+              "value": "={{ $json.body.created_at }}",
+              "type": "string"
+            },
+            {
+              "id": "417ad2cd-0f36-4640-9b54-7c1ae9956fd7",
+              "name": "items",
+              "value": "={{ $json.body.items }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "7a8e4d74-adff-44bf-9dc0-9acd08544ae1",
+      "name": "Edit Fields"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Create order": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Insert documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7c4f96ac-481d-4044-bda1-c8f26d555d0e",
+  "meta": {
+    "instanceId": "fd8eb5bababa46ad3d3297dd6c60c97f0a6da5a44b4da0f9a85c3e56634ad5e7"
+  },
+  "id": "ypKPUgp4ArcE3WOi",
+  "tags": []
+}

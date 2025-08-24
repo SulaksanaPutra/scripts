@@ -1,0 +1,125 @@
+{
+  "name": "Beebakery salesman dashboard",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "report",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "99802f75-a7ed-4b1d-a100-17cb368840f3",
+      "name": "Webhook",
+      "webhookId": "d832f1e4-b322-445e-8f58-add083bce2ed"
+    },
+    {
+      "parameters": {
+        "collection": "orders",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "835f68e7-435d-478e-9734-b6b5c4d59f47",
+      "name": "Find documents",
+      "credentials": {
+        "mongoDb": {
+          "id": "WqIcOTtzitUmvhCf",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let totalRevenue = 0;\nlet totalItemsSold = 0;\nlet itemCount = {};\nlet categoryData = {}; // now store count, profit, lastSold per category\n\n// Loop over all items from previous node\nfor (const item of $input.all()) {\n    const order = item.json;\n    if (!order.items || !Array.isArray(order.items)) continue;\n\n    for (const product of order.items) {\n        const productTotal = product.price * product.quantity;\n\n        totalRevenue += productTotal;\n        totalItemsSold += product.quantity;\n\n        // Track item counts\n        itemCount[product.name] = (itemCount[product.name] || 0) + product.quantity;\n\n        // Track category breakdown\n        if (!categoryData[product.category]) {\n            categoryData[product.category] = {\n                count: 0,\n                profit: 0,\n                lastSold: \"\"\n            };\n        }\n        categoryData[product.category].count += product.quantity;\n        categoryData[product.category].profit += productTotal;\n        categoryData[product.category].lastSold = product.name; // last product seen\n    }\n}\n\n// Determine most sold item and top category\nconst mostSoldItem = Object.entries(itemCount).sort((a, b) => b[1] - a[1])[0] || [\"None\", 0];\nconst topCategoryEntry = Object.entries(categoryData).sort((a, b) => b[1].count - a[1].count)[0] || [\"None\", {count:0}];\n\n// Return a single summary object\nreturn [{\n    json: {\n        totalRevenue: parseFloat(totalRevenue.toFixed(2)),\n        totalItemsSold,\n        topProduct: mostSoldItem[0],\n        topCategory: topCategoryEntry[0],\n        categoryBreakdown: categoryData,\n        items: $input.first().json.items\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "9b457fba-b1d5-42db-9768-12cdcfe772fe",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>Sales Dashboard</title>\n<script src=\"https://cdn.tailwindcss.com\"></script>\n</head>\n<body class=\"bg-white font-sans\">\n\n<main class=\"p-6\">\n  <!-- Header -->\n  <div class=\"mb-6 flex items-center space-x-3\">\n    <svg viewBox=\"0 0 24 24\" class=\"w-10 h-10 text-orange-500\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n      <path d=\"M12 2L15 8H9L12 2Z\" fill=\"currentColor\"/>\n      <path d=\"M12 22V8\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n    </svg>\n    <div>\n      <h1 class=\"text-3xl font-bold text-orange-500\">Sales Dashboard</h1>\n      <p class=\"text-gray-500\">Analyze performance and take recommended actions</p>\n    </div>\n  </div>\n\n  <!-- KPI Summary Cards -->\n  <div id=\"summary-cards\" class=\"grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8\"></div>\n\n  <!-- Category Breakdown Table -->\n  <div class=\"bg-white shadow rounded-xl overflow-x-auto mb-8\">\n    <table class=\"min-w-full divide-y divide-gray-200\">\n      <thead class=\"bg-orange-500\">\n        <tr>\n          <th class=\"px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider\">Category</th>\n          <th class=\"px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider\">Items Sold</th>\n          <th class=\"px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider\">Total Profit</th>\n          <th class=\"px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider\">Last Sold Item</th>\n          <th class=\"px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider\">Action</th>\n        </tr>\n      </thead>\n      <tbody id=\"category-table\" class=\"bg-white divide-y divide-gray-200\"></tbody>\n    </table>\n  </div>\n\n  <!-- Recommendation / Analysis Cards -->\n  <div id=\"recommendation-cards\" class=\"grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8\"></div>\n</main>\n\n<script>\nconst report = {\n  totalRevenue: {{ $json.totalRevenue }},\n  totalItemsSold: {{ $json.totalItemsSold }},\n  topCategory: \"{{ $json.topCategory }}\", // string wrapped in quotes\n  topProduct: \"{{ $json.topProduct }}\",\n  items: {{ JSON.stringify($json.items) }}, // array serialized to JS literal\n  categoryBreakdown: {{ JSON.stringify($json.categoryBreakdown) }} // object serialized to JS literal\n};\n\n\nconst summaryCardsEl = document.getElementById('summary-cards');\nconst categoryTableEl = document.getElementById('category-table');\nconst recommendationCardsEl = document.getElementById('recommendation-cards');\n\n// KPI Summary Cards\nconst kpiData = [\n  { title: \"Total Revenue\", value: `$${report.totalRevenue}`, icon: '<svg viewBox=\"0 0 24 24\"  class=\"w-12 h-12\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><g id=\"SVGRepo_bgCarrier\" stroke-width=\"0\"></g><g id=\"SVGRepo_tracerCarrier\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></g><g id=\"SVGRepo_iconCarrier\"> <path d=\"M16 7C16 6.07003 16 5.60504 15.8978 5.22354C15.6204 4.18827 14.8117 3.37962 13.7765 3.10222C13.395 3 12.93 3 12 3C11.07 3 10.605 3 10.2235 3.10222C9.18827 3.37962 8.37962 4.18827 8.10222 5.22354C8 5.60504 8 6.07003 8 7M14 11.5C13.5 11.376 12.6851 11.3714 12 11.376M12 11.376C11.7709 11.3775 11.9094 11.3678 11.6 11.376C10.7926 11.4012 10.0016 11.7368 10 12.6875C9.99825 13.7004 11 14 12 14C13 14 14 14.2312 14 15.3125C14 16.1251 13.1925 16.4812 12.1861 16.5991C11.3861 16.5991 11 16.625 10 16.5M12 11.376L12 10M12 16.5995V18M7.8 21H16.2C17.8802 21 18.7202 21 19.362 20.673C19.9265 20.3854 20.3854 19.9265 20.673 19.362C21 18.7202 21 17.8802 21 16.2V11.8C21 10.1198 21 9.27976 20.673 8.63803C20.3854 8.07354 19.9265 7.6146 19.362 7.32698C18.7202 7 17.8802 7 16.2 7H7.8C6.11984 7 5.27976 7 4.63803 7.32698C4.07354 7.6146 3.6146 8.07354 3.32698 8.63803C3 9.27976 3 10.1198 3 11.8V16.2C3 17.8802 3 18.7202 3.32698 19.362C3.6146 19.9265 4.07354 20.3854 4.63803 20.673C5.27976 21 6.11984 21 7.8 21Z\" stroke=\"#F97316\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> </g></svg>' },\n  { title: \"Total Items Sold\", value: report.totalItemsSold, icon: '<svg viewBox=\"0 0 24 24\" class=\"w-12 h-12\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><g id=\"SVGRepo_bgCarrier\" stroke-width=\"0\"></g><g id=\"SVGRepo_tracerCarrier\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></g><g id=\"SVGRepo_iconCarrier\"> <path d=\"M12 21V18M7 12H10M17.5 6H7.8C6.11984 6 5.27976 6 4.63803 6.32698C4.07354 6.6146 3.6146 7.07354 3.32698 7.63803C3 8.27976 3 9.11984 3 10.8V18H14M17.5 6C19.433 6 21 7.567 21 9.5V18H14M17.5 6C15.567 6 14 7.567 14 9.5V18M15 3H12V6\" stroke=\"#F97316\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> </g></svg>' },\n  { title: \"Top Category\", value: report.topCategory, icon: '<svg viewBox=\"0 0 24 24\" class=\"w-12 h-12\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><g id=\"SVGRepo_bgCarrier\" stroke-width=\"0\"></g><g id=\"SVGRepo_tracerCarrier\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></g><g id=\"SVGRepo_iconCarrier\"> <path d=\"M8 21H17.8C18.9201 21 19.4802 21 19.908 20.782C20.2843 20.5903 20.5903 20.2843 20.782 19.908C21 19.4802 21 18.9201 21 17.8V16.2C21 15.0799 21 14.5198 20.782 14.092C20.5903 13.7157 20.2843 13.4097 19.908 13.218C19.4802 13 18.9201 13 17.8 13H17.6568M11 8.34314L13.2728 6.07036C14.0648 5.27833 14.4608 4.88231 14.9175 4.73393C15.3192 4.60342 15.7519 4.60342 16.1536 4.73393C16.6102 4.88231 17.0062 5.27833 17.7983 6.07036L18.9296 7.20173C19.7217 7.99376 20.1177 8.38978 20.2661 8.84644C20.3966 9.24812 20.3966 9.68082 20.2661 10.0825C20.1177 10.5392 19.7217 10.9352 18.9296 11.7272L17.6568 13M11 8.34314V6.2C11 5.0799 11 4.51984 10.782 4.09202C10.5903 3.71569 10.2843 3.40973 9.90798 3.21799C9.48016 3 8.92011 3 7.8 3H6.2C5.0799 3 4.51984 3 4.09202 3.21799C3.71569 3.40973 3.40973 3.71569 3.21799 4.09202C3 4.51984 3 5.07989 3 6.2V17.8C3 18.9201 3 19.4802 3.21799 19.908C3.40973 20.2843 3.71569 20.5903 4.09202 20.782C4.51984 21 5.07989 21 6.2 21H7.8C8.92011 21 9.48016 21 9.90798 20.782C10.2843 20.5903 10.5903 20.2843 10.782 19.908C10.7926 19.8872 10.8027 19.866 10.8123 19.8445M11 8.34314V17.8C11 18.8656 11 19.4243 10.8123 19.8445M17.6568 13L10.8123 19.8445M7 17H7.01\" stroke=\"#F97316\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> </g></svg>' },\n  { title: \"Top Product\", value: report.topProduct, icon: '<svg viewBox=\"0 0 24 24\" class=\"w-12 h-12\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><g id=\"SVGRepo_bgCarrier\" stroke-width=\"0\"></g><g id=\"SVGRepo_tracerCarrier\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></g><g id=\"SVGRepo_iconCarrier\"> <path d=\"M9 16H9.01M12 11H12.01M7 10H7.01M15 16H15.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C12 5.76142 13.7909 8 16 8C16 10.2091 18.2386 12 21 12Z\" stroke=\"#F97316\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path> </g></svg>' }\n];\n\nkpiData.forEach(card => {\n  const div = document.createElement('div');\n  div.className = 'bg-white shadow rounded-xl p-5 hover:shadow-xl transition duration-300 flex items-center space-x-3';\n  div.innerHTML = `${card.icon}<div><h2 class=\"text-sm font-semibold text-gray-500\">${card.title}</h2><p class=\"mt-1 text-2xl font-bold text-orange-500\">${card.value}</p></div>`;\n  summaryCardsEl.appendChild(div);\n});\n\n// Category table\nfor (const [category, data] of Object.entries(report.categoryBreakdown)) {\n  const tr = document.createElement('tr');\n  tr.className = 'hover:bg-orange-50 transition';\n  let action = data.count < 2 ? 'Promote' : 'Maintain';\n  tr.innerHTML = `\n    <td class=\"px-6 py-4 whitespace-nowrap font-medium\">${category}</td>\n    <td class=\"px-6 py-4 whitespace-nowrap\">${data.count}</td>\n    <td class=\"px-6 py-4 whitespace-nowrap\">$${data.profit.toFixed(2)}</td>\n    <td class=\"px-6 py-4 whitespace-nowrap\">${data.lastSold}</td>\n    <td class=\"px-6 py-4 whitespace-nowrap font-semibold text-orange-500\">${action}</td>\n  `;\n  categoryTableEl.appendChild(tr);\n}\n\n// Recommendation / Analysis cards\nconst recommendations = [\n  { title: \"Focus on Signature\", text: \"Signature category has highest revenue. Consider promoting related products.\" },\n  { title: \"Boost Croissants\", text: \"Croissant sales are moderate. Offer bundle deals or discounts.\" },\n  { title: \"Check Waffle Stock\", text: \"Waffle sold only 1 item. Consider marketing or adjusting inventory.\" }\n];\n\nrecommendations.forEach(rec => {\n  const div = document.createElement('div');\n  div.className = 'bg-white shadow rounded-xl p-5 hover:shadow-xl transition duration-300';\n  div.innerHTML = `<h3 class=\"font-semibold text-orange-500 mb-2\">${rec.title}</h3><p class=\"text-gray-600\">${rec.text}</p>`;\n  recommendationCardsEl.appendChild(div);\n});\n</script>\n\n</body>\n</html>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        624,
+        0
+      ],
+      "id": "c9412cad-00b5-47dc-806d-63db17f42f39",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Find documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find documents": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a3c80441-fa79-4f65-83e7-e1754e62644f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fd8eb5bababa46ad3d3297dd6c60c97f0a6da5a44b4da0f9a85c3e56634ad5e7"
+  },
+  "id": "GpDIc68w35uKTJuL",
+  "tags": []
+}
