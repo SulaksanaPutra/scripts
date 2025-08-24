@@ -1,52 +1,70 @@
-### Workflow 1: Product Creation
+# Beebakery n8n Workflows
 
-**Description**
-Handles the creation of new products in the Beebakery system, including validation and database insertion.
-
-**Steps**
-1. Validate incoming product data.
-2. Insert product into the database.
-3. Send confirmation response.
-
-**Expected Result**
-- Product is successfully added to the database.
-- API returns a success message.
-- Validation errors are returned for invalid data.
+This repository contains n8n workflows for the Beebakery application, including order creation, landing page delivery, and sales dashboard reporting.
 
 ---
 
-### Workflow 2: Order Processing
+## 1. Beebakery Create Order API
 
-**Description**
-Manages the processing of customer orders, including stock checking, order entry, and status updates.
+Handles incoming order requests and stores them in MongoDB.
 
-**Steps**
-1. Validate order details.
-2. Check inventory availability.
-3. Create order entry in the system.
-4. Update stock levels.
-5. Send order confirmation to customer.
+### Workflow Nodes
+- **Create Order (Webhook)**: Listens for POST requests at `/srcdoc/order`.
+- **Edit Fields (Set)**: Extracts `no_order`, `created_at`, and `items` from the request body.
+- **Insert Documents (MongoDB)**: Inserts the order into the `orders` collection.
 
-**Expected Result**
-- Order is recorded in the database.
-- Stock levels are updated correctly.
-- Customer receives confirmation.
-- Errors are handled gracefully.
+### Usage
+1. Send a POST request with JSON body containing `no_order`, `created_at`, and `items`.
+2. Data is stored in MongoDB for further processing.
 
 ---
 
-### Workflow 3: Inventory Management
+## 2. Beebakery Landing Page
 
-**Description**
-Oversees inventory updates and adjustments to ensure accurate stock tracking for Beebakery.
+Serves the frontend POS page to users.
 
-**Steps**
-1. Receive inventory update requests.
-2. Validate inventory data.
-3. Update inventory records.
-4. Notify relevant teams if stock is low.
+### Workflow Nodes
+- **PosPage (Webhook)**: Serves the landing page at `/beebakery`.
+- **Respond to Webhook**: Delivers HTML page with product catalog, categories, and cart functionality.
 
-**Expected Result**
-- Inventory records are accurate.
-- Alerts are triggered for low stock.
-- Invalid updates are rejected with errors.
+### Features
+- Dynamic product grid and category filtering.
+- Cart management with quantity adjustments.
+- Order submission via POST to `/srcdoc/order`.
+- Modal feedback for order submission status.
+
+---
+
+## 3. Beebakery Salesman Dashboard
+
+Provides a summary and detailed reporting for sales.
+
+### Workflow Nodes
+- **Webhook**: Listens at `/report` for dashboard requests.
+- **Find Documents (MongoDB)**: Fetches all orders from the `orders` collection.
+- **Code**: Processes orders to calculate total revenue, total items sold, top product, top category, and category breakdown.
+- **Respond to Webhook**: Returns a dynamic HTML dashboard.
+
+### Features
+- KPI summary cards (Total Revenue, Total Items Sold, Top Product, Top Category).
+- Category breakdown table with sales stats and last sold item.
+- Recommendation/analysis cards for sales insights.
+
+---
+
+## Setup Instructions
+
+1. Import the workflows into your n8n instance.
+2. Configure MongoDB credentials for the database nodes.
+3. Deploy the workflows and test endpoints:
+   - `POST /srcdoc/order` for creating orders.
+   - `GET /beebakery` to access the POS page.
+   - `GET /report` to view the sales dashboard.
+
+---
+
+## Notes
+
+- Ensure that Tailwind CSS is accessible in the landing page and dashboard HTML.
+- Orders submitted via the landing page are automatically stored in MongoDB.
+- The dashboard uses processed data to provide actionable insights for sales management.
