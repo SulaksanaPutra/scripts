@@ -64,10 +64,12 @@ fi
 # 4. Run MongoDB container with persistent volume
 if [ "$(docker ps -aq -f name=$MONGO_CONTAINER_NAME)" ]; then
     echo "MongoDB container '$MONGO_CONTAINER_NAME' already exists."
+    docker update --restart unless-stopped $MONGO_CONTAINER_NAME
 else
     echo "Running MongoDB container..."
     docker run -d \
         --name $MONGO_CONTAINER_NAME \
+        --restart unless-stopped \
         -e MONGO_INITDB_ROOT_USERNAME=$MONGO_ROOT_USER \
         -e MONGO_INITDB_ROOT_PASSWORD=$MONGO_ROOT_PASS \
         -e MONGO_INITDB_DATABASE=$MONGO_DB \
@@ -81,10 +83,12 @@ fi
 if [[ "$INSTALL_GUI" =~ ^[Yy]$ ]]; then
     if [ "$(docker ps -aq -f name=$ME_CONTAINER_NAME)" ]; then
         echo "Mongo Express container '$ME_CONTAINER_NAME' already exists."
+        docker update --restart unless-stopped $ME_CONTAINER_NAME
     else
         echo "Running Mongo Express container..."
         docker run -d \
             --name $ME_CONTAINER_NAME \
+            --restart unless-stopped \
             --link $MONGO_CONTAINER_NAME:mongo \
             -e ME_CONFIG_MONGODB_ADMINUSERNAME=$MONGO_ROOT_USER \
             -e ME_CONFIG_MONGODB_ADMINPASSWORD=$MONGO_ROOT_PASS \
@@ -98,4 +102,4 @@ if [[ "$INSTALL_GUI" =~ ^[Yy]$ ]]; then
     echo "Access Mongo Express at http://localhost:$ME_PORT"
 fi
 
-echo "Setup complete."
+echo "Setup complete. Containers will auto-start after reboot."
